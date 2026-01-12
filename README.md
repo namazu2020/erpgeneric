@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ERP Genérico - Sistema de Gestión SaaS
 
-## Getting Started
+Este es un sistema ERP de alto rendimiento diseñado para PyMEs, construido con tecnologías modernas para garantizar escalabilidad, seguridad y una experiencia de usuario excepcional.
 
-First, run the development server:
+## 🚀 Tecnologías Principales
+
+- **Frontend:** Next.js 16.1.1 (App Router), React 19, Tailwind CSS v4.
+- **Backend:** Next.js Server Actions & tRPC v11.
+- **Base de Datos:** PostgreSQL con Prisma ORM.
+- **Autenticación:** Better Auth con soporte para Multi-tenancy (Organizaciones).
+- **Validación:** Zod.
+
+## 📦 Módulos Incluidos
+
+1. **Dashboard:** Indicadores clave de rendimiento (KPIs), gráficos de ventas y métricas en tiempo real.
+2. **Ventas y Facturación:** Gestión de facturas, control de clientes y estados de cuenta.
+3. **Caja y Tesorería:** Control de aperturas/cierres de caja, movimientos de efectivo y saldos.
+4. **Inventario:** Control de stock, categorías, proveedores y productos con compatibilidades complejas.
+5. **Configuración y Seguridad:** Gestión de roles y permisos (RBAC), usuarios y auditoría de accesos.
+
+## 🛠️ Instalación y Configuración
+
+### 1. Clonar el repositorio
+
+```bash
+git clone <url-del-repositorio>
+cd erpgeneric
+```
+
+### 2. Instalar dependencias
+
+```bash
+npm install
+```
+
+### 3. Configurar variables de entorno
+
+Copia el archivo `.env.example` a `.env` y completa tus credenciales:
+
+```bash
+cp .env.example .env
+```
+
+### 4. Preparar la base de datos
+
+Asegúrate de tener PostgreSQL corriendo y ejecuta:
+
+```bash
+npx prisma db push
+```
+
+### 5. Iniciar el servidor de desarrollo
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🔐 Configuración Inicial (Setup)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Al iniciar por primera vez, accede a `/setup` para crear la cuenta del **Administrador Principal (SUPER_ADMIN)**. Este usuario tendrá acceso total al sistema y podrá crear otros usuarios y roles.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🏗️ Arquitectura de Código
 
-## Learn More
+El proyecto sigue una arquitectura de **Capa de Servicio (Service Layer)** para mantener la lógica de negocio centralizada y evitar redundancia entre tRPC y Server Actions.
 
-To learn more about Next.js, take a look at the following resources:
+- `src/actions`: Server Actions para manejo de formularios y revalidación de caché.
+- `src/server/routers`: Endpoints de tRPC para consultas eficientes desde el cliente.
+- `src/services`: Lógica de negocio core reutilizable.
+- `src/lib`: Configuraciones de bases de datos, auth y utilidades.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📄 Licencia
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Este proyecto está bajo la Licencia MIT.

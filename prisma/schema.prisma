@@ -1,0 +1,519 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime
+  updatedAt     DateTime
+
+  // Custom fields for ERP
+  tenantId      String    @default("system")
+  password      String?    
+  rol           String    @default("VENDEDOR") 
+  roleId        String?
+  role          Role?     @relation(fields: [roleId], references: [id])
+
+  sessions      Session[]
+  accounts      Account[]
+  loginLogs     LoginLog[]
+
+  members       Member[]
+  invitations   Invitation[]
+  
+  @@index([tenantId])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  token     String   @unique
+  createdAt DateTime
+  updatedAt DateTime
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  activeOrganizationId String?
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+model Organization {
+  id          String   @id
+  name        String
+  slug        String?  @unique
+  logo        String?
+  createdAt   DateTime
+  metadata    String?
+  
+  members     Member[]
+  invitations Invitation[]
+
+  @@map("organization")
+}
+
+model Member {
+  id             String   @id
+  role           String
+  createdAt      DateTime
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("member")
+}
+
+model Invitation {
+  id             String   @id
+  email          String
+  role           String
+  expiresAt      DateTime
+  inviterId      String
+  user           User     @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
+}
+
+// --- ERP DOMAIN MODELS ---
+
+model Producto {
+  id            String   @id @default(uuid())
+  tenantId      String   @default("system")
+  nombre        String
+  sku           String   
+  descripcion   String?
+  
+  compatibilidades Compatibilidad[]
+
+  categoriaId   String?
+  categoria     Categoria? @relation(fields: [categoriaId], references: [id])
+
+  codigoFabrica String?
+  proveedorId   String?
+  proveedor     Proveedor? @relation(fields: [proveedorId], references: [id])
+
+  precioCompra  Decimal   @default(0) @db.Decimal(12, 2)
+  precioVenta   Decimal   @default(0) @db.Decimal(12, 2)
+  tasaIva       Float     @default(21.0)
+
+  stockActual   Int      @default(0)
+  stockMinimo   Int      @default(5)
+  fechaCreacion DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+
+  detalles    DetalleVenta[]
+  movimientos MovimientoStock[]
+
+  @@unique([sku, tenantId])
+  @@index([nombre])
+  @@index([sku])
+  @@index([tenantId])
+  @@index([tenantId, nombre])
+  @@map("productos")
+}
+
+model Compatibilidad {
+  id          String   @id @default(uuid())
+  tenantId    String   @default("system")
+  productoId  String
+  producto    Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  
+  marcaId     String
+  marca       Marca    @relation(fields: [marcaId], references: [id])
+  
+  modeloId    String
+  modelo      Modelo   @relation(fields: [modeloId], references: [id])
+  
+  anioDesde   Int?
+  anioHasta   Int?
+  
+  @@index([productoId])
+  @@index([tenantId])
+  @@map("compatibilidades")
+}
+
+model Marca {
+  id        String     @id @default(uuid())
+  tenantId  String     @default("system")
+  nombre    String     
+  compatibilidades Compatibilidad[]
+  modelos      Modelo[]
+
+  @@unique([nombre, tenantId])
+  @@index([tenantId])
+  @@index([tenantId, nombre])
+  @@map("marcas")
+}
+
+model Modelo {
+  id        String     @id @default(uuid())
+  tenantId  String     @default("system")
+  nombre    String     
+  marcaId   String?    
+  marca     Marca?     @relation(fields: [marcaId], references: [id])
+  compatibilidades Compatibilidad[]
+
+  @@unique([nombre, tenantId]) 
+  @@index([tenantId])
+  @@index([tenantId, nombre])
+  @@index([marcaId])
+  @@map("modelos")
+}
+
+model Categoria {
+  id        String     @id @default(uuid())
+  tenantId  String     @default("system")
+  nombre    String
+  productos Producto[]
+
+  @@unique([nombre, tenantId])
+  @@index([tenantId])
+  @@map("categorias")
+}
+
+model Proveedor {
+  id        String     @id @default(uuid())
+  tenantId  String     @default("system")
+  nombre    String     
+  contacto  String?
+  productos Producto[]
+
+  @@unique([nombre, tenantId])
+  @@index([tenantId])
+  @@index([tenantId, nombre])
+  @@map("proveedores")
+}
+
+model MovimientoStock {
+  id          String   @id @default(uuid())
+  tenantId    String   @default("system")
+  productoId  String
+  producto    Producto @relation(fields: [productoId], references: [id])
+  cantidad    Int
+  tipo        String
+  referencia  String?
+  notas       String?
+  fecha       DateTime @default(now())
+
+  @@index([productoId])
+  @@index([fecha])
+  @@index([tenantId])
+  @@index([tenantId, fecha])
+  @@map("movimientos_stock")
+}
+
+model Cliente {
+  id            String   @id @default(uuid())
+  tenantId      String   @default("system")
+  nombre        String
+  cuit          String?  
+  email         String?  
+  telefono      String?
+  direccion     String?
+  
+  condicionIva  String   @default("CONSUMIDOR_FINAL") 
+  
+  cuentaCorriente Boolean @default(false)
+  limiteCredito   Decimal? @db.Decimal(12, 2)
+  descuentoEspecial Float? 
+  saldoActual       Decimal    @default(0) @db.Decimal(12, 2)
+  
+  fechaRegistro DateTime @default(now())
+  ventas        Venta[]
+  movimientosCtaCte MovimientoCuentaCorriente[]
+
+  @@unique([email, tenantId])
+  @@unique([cuit, tenantId])
+  @@index([tenantId])
+  @@index([tenantId, nombre])
+  @@map("clientes")
+}
+
+model MovimientoCuentaCorriente {
+  id          String   @id @default(uuid())
+  tenantId    String   @default("system")
+  clienteId   String
+  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  tipo        String   // DEBITO, CREDITO
+  monto       Decimal  @db.Decimal(12, 2)
+  concepto    String
+  referencia  String?  
+  fecha       DateTime @default(now())
+
+  @@index([clienteId])
+  @@index([tenantId])
+  @@map("movimientos_cta_cte")
+}
+
+model Venta {
+  id            String   @id @default(uuid())
+  tenantId      String   @default("system")
+  fecha         DateTime @default(now())
+  total         Decimal  @db.Decimal(12, 2)
+  estado        String   @default("COMPLETADA")
+  metodoPago    String   @default("EFECTIVO")
+  clienteId     String?
+  cliente       Cliente? @relation(fields: [clienteId], references: [id])
+  items         DetalleVenta[]
+
+  @@index([fecha])
+  @@index([tenantId])
+  @@index([tenantId, fecha])
+  @@map("ventas")
+}
+
+model DetalleVenta {
+  id             String   @id @default(uuid())
+  tenantId       String   @default("system")
+  cantidad       Int
+  precioUnitario Decimal  @db.Decimal(12, 2)
+  subtotal       Decimal  @db.Decimal(12, 2)
+  ventaId        String
+  productoId     String
+  producto       Producto @relation(fields: [productoId], references: [id])
+  venta          Venta    @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("detalles_venta")
+}
+
+model Caja {
+  id            String   @id @default(uuid())
+  tenantId      String   @default("system")
+  fechaApertura DateTime @default(now())
+  fechaCierre   DateTime?
+  montoApertura Decimal  @db.Decimal(12, 2)
+  montoCierre   Decimal? @db.Decimal(12, 2)
+  estado        String   @default("ABIERTA") 
+  movimientos   MovimientoCaja[]
+
+  @@index([tenantId])
+  @@map("cajas")
+}
+
+model MovimientoCaja {
+  id          String   @id @default(uuid())
+  tenantId    String   @default("system")
+  cajaId      String
+  caja        Caja     @relation(fields: [cajaId], references: [id])
+  tipo        String   
+  monto       Decimal  @db.Decimal(12, 2)
+  concepto    String
+  referencia  String?  
+  fecha       DateTime @default(now())
+
+  @@index([cajaId])
+  @@index([tenantId])
+  @@map("movimientos_caja")
+}
+
+model LoginLog {
+  id        String   @id @default(uuid())
+  tenantId  String
+  usuarioId String
+  usuario   User @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  ip        String?
+  userAgent String?
+  fecha     DateTime @default(now())
+  exitoso   Boolean  @default(true)
+
+  @@index([tenantId])
+  @@index([usuarioId])
+  @@index([fecha])
+  @@map("login_logs")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String   @default("system")
+  name        String
+  description String?
+  permissions String   @default("[]") // JSON stringified array ie: ["VENTAS_VER", "VENTAS_CREAR"]
+  isSystem    Boolean  @default(false)
+
+  users       User[]
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model LogAuditoria {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tabla       String   
+  operacion   String   
+  registroId  String   
+  valorAnterior Json?
+  valorNuevo    Json?
+  usuarioId   String?  
+  fecha       DateTime @default(now())
+
+  @@index([tenantId, tabla])
+  @@index([fecha])
+  @@map("logs_auditoria")
+}
+
+model AlertaStock {
+  id          String   @id @default(uuid())
+  tenantId    String
+  productoId  String
+  producto    String   
+  stockActual Int
+  stockMinimo Int
+  resuelta    Boolean  @default(false)
+  fecha       DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, fecha])
+  @@map("alertas_stock")
+}
+
+model ConfiguracionEmpresa {
+  id              String   @id @default(uuid())
+  tenantId        String   @unique
+  razonSocial     String
+  cuit            String
+  direccion       String
+  telefono        String
+  email           String
+  domicilioFiscal String
+  condicionIva    String   // RESPONSABLE_INSCRIPTO, MONOTRIBUTO, EXENTO
+  
+  tipoEmpresa      String   @default("MICRO")
+  esMiPyME         Boolean  @default(false)
+  ivaTrimestral    Boolean  @default(false)
+  alicuotaIIBB     Decimal  @default(3.0) @db.Decimal(5, 2)
+  alicuotaLeyCheque Decimal @default(1.2) @db.Decimal(5, 2)
+  jurisdicciones   String   @default("[]")    
+  
+  fechaActualizacion DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, razonSocial])
+  @@map("configuracion_empresa")
+}
+
+model Gasto {
+  id          String   @id @default(uuid())
+  tenantId    String
+  fecha       DateTime @default(now())
+  categoria   String   
+  descripcion String
+  monto       Decimal  @db.Decimal(12, 2)
+  metodoPago  String   @default("EFECTIVO")
+  comprobante String?  
+  
+  @@index([tenantId])
+  @@index([fecha])
+  @@index([tenantId, fecha])
+  @@map("gastos")
+}
+
+model MovimientoImpuesto {
+  id          String   @id @default(uuid())
+  tenantId    String
+  fecha       DateTime @default(now())
+  tipo        String   
+  monto       Decimal  @db.Decimal(12, 2)
+  operacion   String   
+  referencia  String?
+  
+  @@index([tenantId])
+  @@index([fecha])
+  @@index([tenantId, fecha])
+  @@map("movimientos_impuestos")
+}
+
+model PlanDeCuentas {
+  id          String   @id @default(uuid())
+  tenantId    String
+  codigo      String   
+  nombre      String   
+  tipo        String   
+  imputable   Boolean  @default(true)
+  
+  movimientos MovimientoAsiento[]
+
+  @@unique([codigo, tenantId])
+  @@index([tenantId])
+  @@map("plan_de_cuentas")
+}
+
+model Asiento {
+  id          String   @id @default(uuid())
+  tenantId    String
+  fecha       DateTime @default(now())
+  descripcion String
+  origen      String?  
+  origenId    String? 
+  
+  movimientos MovimientoAsiento[]
+
+  @@index([tenantId, fecha])
+  @@map("asientos")
+}
+
+model MovimientoAsiento {
+  id          String   @id @default(uuid())
+  asientoId   String
+  asiento     Asiento  @relation(fields: [asientoId], references: [id], onDelete: Cascade)
+  
+  cuentaId    String
+  cuenta      PlanDeCuentas @relation(fields: [cuentaId], references: [id])
+  
+  debe        Decimal    @default(0) @db.Decimal(12, 2)
+  haber       Decimal    @default(0) @db.Decimal(12, 2)
+
+  @@index([asientoId])
+  @@map("movimientos_asiento")
+}
